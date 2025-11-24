@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Obramax - Gestão de Ruptura v23</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                fontFamily: {
+                    sans: ['Inter', 'sans-serif'],
+                },
+                extend: {
+                    colors: {
+                        brand: {
+                            orange: '#EF7D00', // Laranja Obramax
+                            blue: '#003865',   // Azul Obramax
+                            gray: '#F4F4F4'
+                        },
+                        danger: '#DC2626',
+                        success: '#16A34A',
+                        warning: '#CA8A04'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .animate-fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .sticky-header th {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background-color: #F9FAFB;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-slate-800 font-sans min-h-screen flex flex-col">
+
+    <!-- Header Obramax -->
+    <header class="bg-white border-b-4 border-brand-orange shadow-sm sticky top-0 z-50">
+        <div class="max-w-[1900px] mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-4">
+                <div class="bg-brand-blue text-white font-black italic tracking-tighter text-2xl px-2 py-1 rounded-sm transform -skew-x-12">
+                    <span class="inline-block transform skew-x-12">OBRAMAX</span>
+                </div>
+                <div class="h-8 w-px bg-gray-300 mx-2"></div>
+                <div>
+                    <h1 class="text-xl font-bold text-brand-blue tracking-tight">Gestão de Estoque</h1>
+                    <p class="text-[11px] text-gray-500 font-medium">Painel de Antecipação v23</p>
+                </div>
+            </div>
+            <div>
+                 <button onclick="window.location.reload()" class="text-sm font-bold text-gray-500 hover:text-brand-orange transition-colors flex items-center gap-2 cursor-pointer bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg">
+                    <i class="fa-solid fa-rotate-right"></i> Nova Análise
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-[1900px] w-full mx-auto px-6 py-8">
+
+        <!-- Upload Section -->
+        <div id="upload-section" class="max-w-4xl mx-auto transition-all duration-300 animate-fade-in">
+            <div class="flex justify-center mb-6 gap-4">
+                <button onclick="switchInputMethod('file')" id="tab-file" class="px-6 py-2 rounded-full font-bold text-sm shadow-sm transition-all bg-brand-orange text-white ring-2 ring-orange-200">
+                    <i class="fa-solid fa-file-excel mr-2"></i> Arquivo Excel
+                </button>
+                <button onclick="switchInputMethod('url')" id="tab-url" class="px-6 py-2 rounded-full font-bold text-sm text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 transition-all">
+                    <i class="fa-brands fa-google-drive mr-2"></i> Link Google Sheets
+                </button>
+            </div>
+
+            <!-- File Drop -->
+            <div id="method-file" class="bg-white rounded-xl shadow-sm p-12 text-center border-2 border-dashed border-gray-300 hover:border-brand-orange hover:bg-orange-50/30 transition-all cursor-pointer group relative">
+                <input type="file" id="file-input" class="hidden" accept=".xlsx, .xls, .csv" />
+                <div class="mb-4 transform group-hover:scale-110 transition-transform duration-300">
+                    <span class="inline-block p-5 rounded-full bg-orange-100 text-brand-orange shadow-sm">
+                        <i class="fa-solid fa-cloud-arrow-up text-4xl"></i>
+                    </span>
+                </div>
+                <h3 class="text-xl font-bold text-gray-800">Arraste sua planilha aqui</h3>
+                <p class="text-sm text-gray-500 mt-2 max-w-md mx-auto">
+                    Colunas obrigatórias: <span class="font-bold">Dt. Pedido</span>, <span class="font-bold">Data Agendamento</span>, <span class="font-bold">Ruptura</span>.
+                </p>
+            </div>
+
+            <!-- URL Input -->
+            <div id="method-url" class="hidden bg-white rounded-xl shadow-sm p-10 border border-gray-200">
+                <h3 class="text-lg font-bold text-brand-blue mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-link"></i> Importar do Google Sheets
+                </h3>
+                <div class="flex gap-2">
+                    <input type="text" id="url-input" placeholder="Cole o link CSV publicado aqui..." class="flex-1 bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-brand-orange focus:border-brand-orange block p-3">
+                    <button onclick="handleUrlUpload()" class="bg-brand-blue hover:bg-blue-800 text-white font-bold py-2 px-6 rounded-lg shadow transition-colors">
+                        Carregar
+                    </button>
+                </div>
+            </div>
+
+            <div id="loading-indicator" class="hidden mt-8 text-center">
+                <div class="inline-flex items-center gap-3 px-6 py-3 bg-white rounded-full shadow-md text-brand-orange font-bold">
+                    <i class="fa-solid fa-circle-notch fa-spin text-xl"></i> Processando dados...
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="main-dashboard" class="hidden animate-fade-in space-y-6">
+            
+            <!-- Controles -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sticky top-24 z-30">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                    
+                    <!-- Data Corte -->
+                    <div class="md:col-span-2">
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Janela Segura</label>
+                        <input type="date" id="date-cutoff" class="w-full bg-gray-50 border border-gray-300 text-gray-800 text-xs font-bold rounded focus:ring-brand-orange focus:border-brand-orange p-2">
+                    </div>
+
+                    <!-- Filtro Loja -->
+                    <div class="md:col-span-2 relative">
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                            <i class="fa-solid fa-store mr-1"></i> Loja
+                        </label>
+                        <button id="store-dropdown-btn" onclick="toggleDropdown('store')" class="w-full bg-gray-50 border border-gray-300 text-gray-800 text-xs font-bold rounded p-2 text-left flex justify-between items-center hover:bg-gray-100">
+                            <span id="store-btn-text" class="truncate">Todas</span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
+                        </button>
+                        <div id="store-dropdown-content" class="hidden absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 rounded shadow-xl z-50 max-h-60 flex flex-col">
+                            <div class="p-2 border-b border-gray-100 bg-gray-50">
+                                <label class="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                                    <input type="checkbox" id="select-all-stores" class="rounded text-brand-orange focus:ring-brand-orange" checked onchange="toggleAllItems('store', this)">
+                                    Todas
+                                </label>
+                            </div>
+                            <div id="store-list-container" class="overflow-y-auto custom-scrollbar p-1 space-y-0.5 max-h-48"></div>
+                        </div>
+                    </div>
+
+                    <!-- Filtro Fornecedor -->
+                    <div class="md:col-span-3 relative">
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                            <i class="fa-solid fa-truck mr-1"></i> Fornecedor
+                        </label>
+                        <button id="supplier-dropdown-btn" onclick="toggleDropdown('supplier')" class="w-full bg-gray-50 border border-gray-300 text-gray-800 text-xs font-bold rounded p-2 text-left flex justify-between items-center hover:bg-gray-100">
+                            <span id="supplier-btn-text" class="truncate">Todos</span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-gray-400"></i>
+                        </button>
+                        <div id="supplier-dropdown-content" class="hidden absolute top-full left-0 w-[150%] mt-1 bg-white border border-gray-200 rounded shadow-xl z-50 max-h-80 flex flex-col">
+                            <div class="p-2 border-b border-gray-100 bg-gray-50 space-y-2">
+                                <label class="flex items-center gap-2 text-xs font-bold text-gray-700 cursor-pointer">
+                                    <input type="checkbox" id="select-all-suppliers" class="rounded text-brand-orange focus:ring-brand-orange" checked onchange="toggleAllItems('supplier', this)">
+                                    Todos
+                                </label>
+                                <input type="text" id="supplier-search" placeholder="Buscar..." class="w-full text-xs p-1.5 border border-gray-300 rounded focus:border-brand-orange focus:outline-none" onkeyup="filterList('supplier')">
+                            </div>
+                            <div id="supplier-list-container" class="overflow-y-auto custom-scrollbar p-1 space-y-0.5 flex-1"></div>
+                        </div>
+                    </div>
+
+                    <!-- Critério -->
+                    <div class="md:col-span-3">
+                         <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Critério</label>
+                        <div class="flex bg-gray-100 p-0.5 rounded border border-gray-200">
+                            <button onclick="setCriteria('ruptura')" id="btn-ruptura" class="flex-1 py-1.5 px-2 rounded text-xs font-bold transition-all shadow-sm bg-white text-danger ring-1 ring-gray-200">Só Ruptura</button>
+                            <button onclick="setCriteria('todos')" id="btn-todos" class="flex-1 py-1.5 px-2 rounded text-xs font-medium transition-all text-gray-500 hover:text-gray-700">Ruptura + Pré</button>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <button onclick="applyFilters()" class="w-full bg-brand-orange hover:bg-orange-600 text-white font-bold py-2 px-4 rounded shadow hover:shadow-md transition-all text-xs h-[34px] flex justify-center items-center gap-2">
+                            <i class="fa-solid fa-filter"></i> Filtrar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPIs -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="bg-white rounded border-l-4 border-danger p-4 shadow-sm">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase">Prioridade: ANTECIPAR</p>
+                    <h2 class="text-3xl font-bold text-slate-800 mt-1" id="kpi-action-needed">0</h2>
+                </div>
+                <div class="bg-white rounded border-l-4 border-brand-blue p-4 shadow-sm">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase">Fila: MONITORAR</p>
+                    <h2 class="text-3xl font-bold text-slate-800 mt-1" id="kpi-in-transit">0</h2>
+                </div>
+                <div class="bg-white rounded border-l-4 border-gray-400 p-4 shadow-sm">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase">Itens Ruptura</p>
+                    <h2 class="text-3xl font-bold text-gray-700 mt-1" id="kpi-total-ruptura">0</h2>
+                </div>
+                <div class="bg-white rounded border-l-4 border-yellow-400 p-4 shadow-sm">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase">Itens Pré-Ruptura</p>
+                    <h2 class="text-3xl font-bold text-gray-700 mt-1" id="kpi-total-pre">0</h2>
+                </div>
+            </div>
+
+            <!-- Tabelas -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Tabela Antecipar -->
+                <div class="bg-white rounded shadow border border-gray-200 flex flex-col h-[600px]">
+                    <div class="p-4 border-b border-gray-200 bg-red-50 flex justify-between items-center">
+                        <h3 class="font-bold text-danger flex items-center gap-2"><i class="fa-solid fa-fire"></i> ANTECIPAR</h3>
+                        <button onclick="exportTableToCSV('antecipacao')" class="text-[10px] font-bold text-white bg-danger hover:bg-red-700 px-3 py-1.5 rounded transition-colors uppercase">CSV</button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto custom-scrollbar relative">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="sticky-header text-[10px] uppercase text-gray-500 font-bold tracking-wider">
+                                <tr>
+                                    <th class="p-3 bg-gray-50 border-b w-10 text-center">#</th>
+                                    <th class="p-3 bg-gray-50 border-b">Pedido / Fornecedor</th>
+                                    <!-- Coluna Nova -->
+                                    <th class="p-3 bg-gray-50 border-b w-24 text-center">Emissão</th>
+                                    <th class="p-3 bg-gray-50 border-b w-24 text-center">Agend.</th>
+                                    <th class="p-3 bg-gray-50 border-b w-20 text-center">Status</th>
+                                    <th class="p-3 bg-purple-50 text-purple-700 border-b border-x border-purple-100 text-center w-12" title="Críticos Selecionados">Crit.</th>
+                                    <th class="p-3 bg-gray-50 border-b text-center text-red-600 w-10">Rupt</th>
+                                    <th class="p-3 bg-gray-50 border-b text-center text-yellow-600 w-10">Pré</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-antecipacao" class="text-xs divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tabela Monitorar -->
+                <div class="bg-white rounded shadow border border-gray-200 flex flex-col h-[600px]">
+                    <div class="p-4 border-b border-gray-200 bg-blue-50 flex justify-between items-center">
+                        <h3 class="font-bold text-brand-blue flex items-center gap-2"><i class="fa-solid fa-clipboard-check"></i> MONITORAR</h3>
+                        <button onclick="exportTableToCSV('transito')" class="text-[10px] font-bold text-white bg-brand-blue hover:bg-blue-800 px-3 py-1.5 rounded transition-colors uppercase">CSV</button>
+                    </div>
+                    <div class="flex-1 overflow-y-auto custom-scrollbar relative">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="sticky-header text-[10px] uppercase text-gray-500 font-bold tracking-wider">
+                                <tr>
+                                    <th class="p-3 bg-gray-50 border-b w-10 text-center">#</th>
+                                    <th class="p-3 bg-gray-50 border-b">Pedido / Fornecedor</th>
+                                    <!-- Coluna Nova -->
+                                    <th class="p-3 bg-gray-50 border-b w-24 text-center">Emissão</th>
+                                    <th class="p-3 bg-gray-50 border-b w-24 text-center">Agend.</th>
+                                    <th class="p-3 bg-gray-50 border-b w-20 text-center">Status</th>
+                                    <th class="p-3 bg-blue-50 text-brand-blue border-b border-x border-blue-100 text-center w-12" title="Críticos Selecionados">Crit.</th>
+                                    <th class="p-3 bg-gray-50 border-b text-center text-gray-400 w-10">Rupt</th>
+                                    <th class="p-3 bg-gray-50 border-b text-center text-gray-400 w-10">Pré</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-transito" class="text-xs divide-y divide-gray-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Erro -->
+        <div id="error-modal" class="hidden fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+            <div class="bg-white rounded shadow-2xl max-w-md w-full p-6 border-t-4 border-danger">
+                <h3 class="text-lg font-bold text-gray-800 mb-2 flex items-center gap-2"><i class="fa-solid fa-circle-exclamation text-danger"></i> Erro</h3>
+                <div id="error-content" class="text-sm text-gray-600 mb-6 space-y-2"></div>
+                <div class="text-right"><button onclick="document.getElementById('error-modal').classList.add('hidden')" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded text-sm font-bold transition-colors">Fechar</button></div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        let rawDataGlobal = []; 
+        let indicesGlobal = {};
+        let currentCriteria = 'ruptura'; 
+        let filterData = { supplier: { all: [], selected: new Set() }, store: { all: [], selected: new Set() } };
+        let listAntecipaveisExport = [];
+        let listTransitoExport = [];
+
+        const defaultCutoff = new Date();
+        defaultCutoff.setDate(defaultCutoff.getDate() + 7);
+        document.getElementById('date-cutoff').valueAsDate = defaultCutoff;
+
+        function switchInputMethod(method) {
+            document.getElementById('method-file').classList.toggle('hidden', method !== 'file');
+            document.getElementById('method-url').classList.toggle('hidden', method !== 'url');
+            const btnFile = document.getElementById('tab-file');
+            const btnUrl = document.getElementById('tab-url');
+            if(method === 'file') {
+                btnFile.className = "px-6 py-2 rounded-full font-bold text-sm shadow-sm transition-all bg-brand-orange text-white ring-2 ring-orange-200";
+                btnUrl.className = "px-6 py-2 rounded-full font-bold text-sm text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 transition-all";
+            } else {
+                btnUrl.className = "px-6 py-2 rounded-full font-bold text-sm shadow-sm transition-all bg-brand-orange text-white ring-2 ring-orange-200";
+                btnFile.className = "px-6 py-2 rounded-full font-bold text-sm text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 transition-all";
+            }
+        }
+
+        document.addEventListener('click', (e) => {
+            ['store', 'supplier'].forEach(type => {
+                const content = document.getElementById(`${type}-dropdown-content`);
+                const btn = document.getElementById(`${type}-dropdown-btn`);
+                if (!content.contains(e.target) && !btn.contains(e.target)) content.classList.add('hidden');
+            });
+        });
+
+        function toggleDropdown(type) { document.getElementById(`${type}-dropdown-content`).classList.toggle('hidden'); }
+
+        const dropZone = document.getElementById('method-file');
+        const fileInput = document.getElementById('file-input');
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-brand-orange', 'bg-orange-50'); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('border-brand-orange', 'bg-orange-50'); });
+        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.classList.remove('border-brand-orange', 'bg-orange-50'); if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+        fileInput.addEventListener('change', (e) => { if(e.target.files.length) handleFile(e.target.files[0]); });
+
+        function handleFile(file) {
+            toggleLoading(true);
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array', cellDates: true});
+                    processWorkbook(workbook);
+                } catch (err) { showError("Erro ao ler arquivo", [err.message]); toggleLoading(false); }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function handleUrlUpload() {
+            const url = document.getElementById('url-input').value.trim();
+            if(!url) return showError("Link inválido", ["Cole o link CSV publicado do Google Sheets."]);
+            toggleLoading(true);
+            try {
+                const response = await fetch(url);
+                if(!response.ok) throw new Error(`Erro HTTP: ${response.status}`);
+                const text = await response.text();
+                const workbook = XLSX.read(text, {type: 'string'});
+                processWorkbook(workbook);
+            } catch (err) { showError("Erro de Conexão", [err.message]); toggleLoading(false); }
+        }
+
+        function processWorkbook(workbook) {
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonMatrix = XLSX.utils.sheet_to_json(sheet, {header: 1, raw: false, dateNF: 'dd/mm/yyyy'});
+            if (!jsonMatrix || jsonMatrix.length === 0) throw new Error("Arquivo vazio.");
+            rawDataGlobal = jsonMatrix;
+            if (identifyColumns(jsonMatrix[0])) {
+                populateFilters(); 
+                document.getElementById('upload-section').classList.add('hidden');
+                document.getElementById('main-dashboard').classList.remove('hidden');
+                applyFilters();
+            } else { toggleLoading(false); }
+        }
+
+        function toggleLoading(show) {
+            const ind = document.getElementById('loading-indicator');
+            show ? ind.classList.remove('hidden') : ind.classList.add('hidden');
+        }
+
+        function identifyColumns(headerRow) {
+            const getIdx = (terms) => headerRow.findIndex(h => {
+                if (!h) return false;
+                const val = String(h).toLowerCase();
+                return terms.some(t => val.includes(t));
+            });
+
+            // 1. Mapeamento Rigoroso de Colunas
+            const idxPedido = getIdx(['pedido', 'ped', 'ordem']);
+            const idxFornecedor = getIdx(['fornecedor', 'forn', 'parceiro']);
+            const idxLoja = getIdx(['loja', 'centro', 'filial']);
+            
+            // 2. Data de Emissão (Dt. Pedido)
+            const idxDtPedido = getIdx(['dt. pedido', 'data pedido', 'emissao', 'emissão']);
+
+            // 3. Data de Agendamento (CORREÇÃO CRÍTICA)
+            // Procura explicitamente por "agendamento" primeiro.
+            let idxAgendamento = headerRow.findIndex(h => {
+                if (!h) return false;
+                const val = String(h).toLowerCase();
+                return val.includes('agendamento');
+            });
+            // Apenas se NÃO achar "agendamento", procura por entrega/previsão (fallback APENAS se coluna não existir)
+            if (idxAgendamento === -1) {
+                idxAgendamento = headerRow.findIndex(h => {
+                    if (!h) return false;
+                    const val = String(h).toLowerCase();
+                    return val.includes('entrega') || val.includes('previsão');
+                });
+            }
+
+            const idxStatusPrazo = getIdx(['status prazo', 'prazo']);
+            let idxStatus = headerRow.findIndex(h => {
+                 if (!h) return false;
+                 const val = String(h).trim().toLowerCase();
+                 return val === 'ruptura e pré ruptura' || val === 'ruptura e pre ruptura';
+            });
+            if (idxStatus === -1) idxStatus = getIdx(['ruptura', 'status']);
+
+            indicesGlobal = { pedido: idxPedido, fornecedor: idxFornecedor, loja: idxLoja, agendamento: idxAgendamento, dtPedido: idxDtPedido, status: idxStatus, statusPrazo: idxStatusPrazo };
+
+            let missing = [];
+            if(idxPedido === -1) missing.push("Pedido");
+            // Se não achar nem agendamento nem previsão, avisa.
+            if(idxAgendamento === -1) missing.push("Data Agendamento (ou Previsão)");
+            if(idxStatus === -1) missing.push("Ruptura");
+
+            if (missing.length > 0) { showError("Colunas não encontradas", [`Faltam: ${missing.join(', ')}`]); return false; }
+            return true;
+        }
+
+        function populateFilters() {
+            const extractUnique = (idx) => {
+                if(idx === -1) return [];
+                const set = new Set();
+                for(let i=1; i<rawDataGlobal.length; i++) {
+                    const val = rawDataGlobal[i][idx];
+                    if(val) set.add(String(val).trim());
+                }
+                return Array.from(set).sort();
+            };
+            filterData.store.all = extractUnique(indicesGlobal.loja);
+            filterData.store.selected = new Set(filterData.store.all);
+            renderFilterList('store');
+            filterData.supplier.all = extractUnique(indicesGlobal.fornecedor);
+            filterData.supplier.selected = new Set(filterData.supplier.all);
+            renderFilterList('supplier');
+        }
+
+        function renderFilterList(type) {
+            const container = document.getElementById(`${type}-list-container`);
+            container.innerHTML = '';
+            const list = type === 'supplier' 
+                ? filterData.supplier.all.filter(i => !document.getElementById('supplier-search').value || i.toLowerCase().includes(document.getElementById('supplier-search').value.toLowerCase()))
+                : filterData.store.all;
+
+            if(list.length === 0) { container.innerHTML = '<div class="p-2 text-gray-400 italic text-[10px]">Vazio</div>'; return; }
+
+            list.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-2 p-1 hover:bg-gray-50 rounded filter-item";
+                const cb = document.createElement('input');
+                cb.type = "checkbox";
+                cb.className = "rounded text-brand-orange focus:ring-brand-orange w-3 h-3";
+                cb.checked = filterData[type].selected.has(item);
+                cb.onchange = (e) => {
+                    e.target.checked ? filterData[type].selected.add(item) : filterData[type].selected.delete(item);
+                    updateBtnText(type);
+                    document.getElementById(`select-all-${type}s`).checked = filterData[type].selected.size === filterData[type].all.length;
+                };
+                const lbl = document.createElement('span');
+                lbl.className = "text-[11px] text-gray-700 truncate cursor-pointer select-none flex-1";
+                lbl.textContent = item;
+                lbl.onclick = () => cb.click();
+                div.appendChild(cb); div.appendChild(lbl); container.appendChild(div);
+            });
+            updateBtnText(type);
+        }
+
+        function toggleAllItems(type, source) {
+            filterData[type].selected = source.checked ? new Set(filterData[type].all) : new Set();
+            renderFilterList(type);
+        }
+        function filterList(type) { if(type === 'supplier') renderFilterList('supplier'); }
+        function updateBtnText(type) {
+            const count = filterData[type].selected.size;
+            const total = filterData[type].all.length;
+            const btnText = document.getElementById(`${type}-btn-text`);
+            if (count === 0) btnText.textContent = "Nenhum";
+            else if (count === total) btnText.textContent = type === 'store' ? "Todas" : "Todos";
+            else btnText.textContent = `${count} Selecionado(s)`;
+        }
+
+        function setCriteria(c) {
+            currentCriteria = c;
+            const btnRuptura = document.getElementById('btn-ruptura');
+            const btnTodos = document.getElementById('btn-todos');
+            if(c === 'ruptura') {
+                btnRuptura.className = "flex-1 py-1.5 px-2 rounded text-xs font-bold transition-all shadow-sm bg-white text-danger ring-1 ring-gray-200";
+                btnTodos.className = "flex-1 py-1.5 px-2 rounded text-xs font-medium transition-all text-gray-500 hover:text-gray-700";
+            } else {
+                btnTodos.className = "flex-1 py-1.5 px-2 rounded text-xs font-bold transition-all shadow-sm bg-white text-warning ring-1 ring-gray-200";
+                btnRuptura.className = "flex-1 py-1.5 px-2 rounded text-xs font-medium transition-all text-gray-500 hover:text-gray-700";
+            }
+            applyFilters();
+        }
+
+        function parseDate(raw) {
+            if (!raw) return null;
+            if (raw instanceof Date) return raw;
+            const str = String(raw).trim();
+            if (!str) return null;
+            const parts = str.split('/');
+            if(parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]);
+            const iso = new Date(str);
+            return isNaN(iso) ? null : iso;
+        }
+
+        function applyFilters() {
+            toggleLoading(true);
+            setTimeout(() => {
+                const dateVal = document.getElementById('date-cutoff').value;
+                let cutoffDate = dateVal ? new Date(dateVal) : new Date();
+                cutoffDate.setHours(0,0,0,0);
+                processData(cutoffDate);
+                toggleLoading(false);
+            }, 50);
+        }
+
+        function processData(cutoffDate) {
+            const ordersMap = new Map();
+            const today = new Date(); today.setHours(0,0,0,0);
+            let totalRupturaGeral = 0;
+            let totalPreGeral = 0;
+
+            for (let i = 1; i < rawDataGlobal.length; i++) {
+                const row = rawDataGlobal[i];
+                const pid = row[indicesGlobal.pedido];
+                if (!pid) continue;
+                if(indicesGlobal.loja !== -1 && !filterData.store.selected.has(String(row[indicesGlobal.loja]).trim())) continue;
+                if(indicesGlobal.fornecedor !== -1 && !filterData.supplier.selected.has(String(row[indicesGlobal.fornecedor]).trim())) continue;
+
+                // Lógica de Agendamento RIGOROSA
+                let dateAgendObj = parseDate(row[indicesGlobal.agendamento]);
+                let daysDiff = null;
+                let isItemSafe = false;
+
+                if (dateAgendObj && !isNaN(dateAgendObj)) {
+                    dateAgendObj.setHours(0,0,0,0);
+                    const timeDiff = dateAgendObj.getTime() - today.getTime();
+                    daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+                    if (dateAgendObj >= today && dateAgendObj <= cutoffDate) isItemSafe = true;
+                }
+                
+                // Data de Emissão (Dt. Pedido)
+                let dtPedidoStr = '-';
+                if(indicesGlobal.dtPedido !== -1 && row[indicesGlobal.dtPedido]) {
+                    const dobj = parseDate(row[indicesGlobal.dtPedido]);
+                    if(dobj && !isNaN(dobj)) dtPedidoStr = dobj.toLocaleDateString('pt-BR');
+                }
+
+                if (!ordersMap.has(pid)) {
+                    ordersMap.set(pid, {
+                        id: pid,
+                        fornecedor: indicesGlobal.fornecedor !== -1 ? row[indicesGlobal.fornecedor] : 'N/A',
+                        dateObj: dateAgendObj,
+                        dataStr: dateAgendObj ? dateAgendObj.toLocaleDateString('pt-BR') : 'S/D',
+                        dtPedido: dtPedidoStr,
+                        daysDiff: daysDiff,
+                        statusPrazoRaw: indicesGlobal.statusPrazo !== -1 ? row[indicesGlobal.statusPrazo] : null,
+                        unsafeRuptura: 0, unsafePre: 0, safeRuptura: 0, safePre: 0, totalUnsafe: 0, totalSafe: 0
+                    });
+                }
+                
+                const order = ordersMap.get(pid);
+                const rawStatus = row[indicesGlobal.status];
+                let statusVal = String(rawStatus || '').trim().toLowerCase();
+                if (!statusVal) continue;
+
+                const isPre = statusVal.includes('pre') || statusVal.includes('pré') || statusVal.includes('baixo');
+                let isReal = false;
+                if (statusVal === '0' || rawStatus === 0) isReal = true;
+                else if ((statusVal.includes('ruptura') || statusVal.includes('sim')) && !isPre) isReal = true;
+
+                if (isReal) totalRupturaGeral++;
+                if (isPre) totalPreGeral++;
+
+                if (isReal) isItemSafe ? order.safeRuptura++ : order.unsafeRuptura++;
+                else if (isPre) isItemSafe ? order.safePre++ : order.unsafePre++;
+                
+                order.totalUnsafe = order.unsafeRuptura + order.unsafePre;
+                order.totalSafe = order.safeRuptura + order.safePre;
+            }
+
+            const allOrders = Array.from(ordersMap.values());
+            const antecipaveis = allOrders.filter(o => (currentCriteria === 'ruptura') ? o.unsafeRuptura > 0 : o.totalUnsafe > 0);
+            const transito = allOrders.filter(o => {
+                const isAntecipavel = (currentCriteria === 'ruptura') ? o.unsafeRuptura > 0 : o.totalUnsafe > 0;
+                if(isAntecipavel) return false;
+                return (currentCriteria === 'ruptura') ? o.safeRuptura > 0 : o.totalSafe > 0;
+            });
+
+            const sortFn = (list, isAntecipar) => list.sort((a, b) => {
+                const countA = isAntecipar ? (currentCriteria === 'ruptura' ? a.unsafeRuptura : a.totalUnsafe) : (currentCriteria === 'ruptura' ? a.safeRuptura : a.totalSafe);
+                const countB = isAntecipar ? (currentCriteria === 'ruptura' ? b.unsafeRuptura : b.totalUnsafe) : (currentCriteria === 'ruptura' ? b.safeRuptura : b.totalSafe);
+                if (countB !== countA) return countB - countA;
+                // Ordenar S/D (null) para o final
+                let da = a.daysDiff === null ? 9999 : a.daysDiff;
+                let db = b.daysDiff === null ? 9999 : b.daysDiff;
+                return da - db;
+            });
+
+            sortFn(antecipaveis, true);
+            sortFn(transito, false);
+            listAntecipaveisExport = antecipaveis;
+            listTransitoExport = transito;
+
+            document.getElementById('kpi-action-needed').textContent = antecipaveis.length;
+            document.getElementById('kpi-in-transit').textContent = transito.length;
+            document.getElementById('kpi-total-ruptura').textContent = totalRupturaGeral;
+            document.getElementById('kpi-total-pre').textContent = totalPreGeral;
+
+            renderTable('table-antecipacao', antecipaveis, true);
+            renderTable('table-transito', transito, false);
+        }
+
+        function renderTable(elId, list, isAntecipar) {
+            const tbody = document.getElementById(elId);
+            tbody.innerHTML = '';
+            if(list.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="p-4 text-center text-gray-400 text-xs italic">Nenhum pedido encontrado.</td></tr>'; return; }
+
+            list.forEach((o, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 border-b border-gray-100 last:border-0 transition-colors group";
+                
+                let statusBadge = '';
+                if(o.daysDiff === null) statusBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-500 border border-gray-200">S/D</span>`;
+                else if (o.daysDiff < 0) statusBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">-${Math.abs(o.daysDiff)}d</span>`;
+                else statusBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-brand-blue">${o.daysDiff}d</span>`;
+
+                let critCount = isAntecipar ? (currentCriteria === 'ruptura' ? o.unsafeRuptura : o.totalUnsafe) : (currentCriteria === 'ruptura' ? o.safeRuptura : o.totalSafe);
+                let critClass = isAntecipar ? "text-purple-700 bg-purple-50" : "text-brand-blue bg-blue-50";
+                let preOpacity = currentCriteria === 'ruptura' ? 'opacity-40' : 'opacity-100';
+
+                tr.innerHTML = `
+                    <td class="p-3 text-center font-bold text-gray-400">${idx+1}</td>
+                    <td class="p-3">
+                        <div class="font-bold text-gray-800">${o.id}</div>
+                        <div class="text-[10px] text-gray-500 uppercase truncate max-w-[150px]" title="${o.fornecedor}">${o.fornecedor}</div>
+                    </td>
+                    <td class="p-3 text-center text-gray-600 font-medium">${o.dtPedido}</td>
+                    <td class="p-3 text-center text-gray-700 font-bold">${o.dataStr}</td>
+                    <td class="p-3 text-center">${statusBadge}</td>
+                    <td class="p-3 text-center font-bold text-sm ${critClass} border-x border-gray-100">${critCount}</td>
+                    <td class="p-3 text-center font-bold text-gray-600 bg-gray-50/50">${isAntecipar ? o.unsafeRuptura : o.safeRuptura}</td>
+                    <td class="p-3 text-center font-bold text-gray-600 bg-gray-50/50 ${preOpacity}">${isAntecipar ? o.unsafePre : o.safePre}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function exportTableToCSV(type) {
+            const list = type === 'antecipacao' ? listAntecipaveisExport : listTransitoExport;
+            if (!list.length) return;
+            const prefix = type === 'antecipacao' ? 'OBRAMAX_ANTECIPAR' : 'OBRAMAX_MONITORAR';
+            const rows = [['Rank','Pedido','Fornecedor','Dt_Emissao','Data_Agend','Dias','Critico_Filtro','Ruptura','Pre']];
+            list.forEach((r, i) => {
+                let crit = type === 'antecipacao' ? (currentCriteria === 'ruptura' ? r.unsafeRuptura : r.totalUnsafe) : (currentCriteria === 'ruptura' ? r.safeRuptura : r.totalSafe);
+                rows.push([i+1, r.id, `"${r.fornecedor}"`, r.dtPedido, r.dataStr, r.daysDiff||'', crit, type === 'antecipacao' ? r.unsafeRuptura : r.safeRuptura, type === 'antecipacao' ? r.unsafePre : r.safePre]);
+            });
+            const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+            const link = document.createElement("a");
+            link.href = encodeURI(csvContent);
+            link.download = `${prefix}_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        function showError(title, lines) {
+            document.getElementById('error-modal').classList.remove('hidden');
+            document.getElementById('error-content').innerHTML = `<strong>${title}</strong><br>` + lines.join('<br>');
+        }
+    </script>
+</body>
+</html>
